@@ -32,6 +32,13 @@ def isPointInTriangle(p1, p2, p3, q):
     cross31 = crossProduct(p3, p1, q)
     return not (cross12 < 0 or cross23 < 0 or cross31 < 0)
 
+def doLinesIntersect(p1, p2, p3, p4):
+    cross123 = crossProduct(p1, p2, p3)
+    cross124 = crossProduct(p1, p2, p4)
+    cross341 = crossProduct(p3, p4, p1)
+    cross342 = crossProduct(p3, p4, p2)
+    return cross123 * cross124 < 0 and cross341 * cross342 < 0
+
 def findEar(points):
     for i in range(len(points) - 2):
         if crossProduct(points[i], points[i + 1], points[i + 2]) <= 0:
@@ -126,15 +133,77 @@ def colorPointGraph(p_vertices, t_vertices, t_alists):
 
     return p_colors
 
+def generateVisibilitySets(points, edges):
+    v_sets = []
+    for i in range(len(points)):
+        v_sets.append(set())
+
+    for i in range(len(points)):
+        state = 0
+        v_sets[i].add(i)
+        v_sets[i].add((i + 1) % len(points))
+        v_sets[(i + 1) % len(points)].add(i)
+        
+        for j in range(i + 2, len(points)):
+            # print (f"\nchecking {points[i]} {points[j]}, current state is {state}")
+            cross = crossProduct(points[j - 2], points[j - 1], points[j])
+
+            if state != 1 and cross < 0:
+                # print (f"state not 1 and right turn, {points[j]} not visible and state is -1")
+                state = -1
+                continue
+
+            if state != -1 and cross >= 0:
+                # print (f"state not -1 left/no turn, {points[j]} visible and state is 1")
+                state = 1
+                v_sets[i].add(j)
+                v_sets[j].add(i)
+                continue
+
+            if (state == 1 and cross <= 0) or (state == -1 and cross >= 0):
+                """
+                if cross > 0:
+                    print (f"right turn on state 1, testing for interception")
+                else:
+                    print (f"left turn on state -1, testing for interception")
+                """
+
+                sees_j = True
+                for k in range(i, j - 1):
+                    if doLinesIntersect(points[i], points[j], points[k], points[k + 1]):
+                        # print (f"edge {points[k]} {points[k + 1]} intercepts them, {points[j]} not visible and state is -1")
+                        state = -1
+                        sees_j = False
+                        break
+                
+                if sees_j:
+                    # print (f"no interceptions: {points[j]} visible and state is 1")
+                    v_sets[i].add(j)
+                    v_sets[j].add(i)
+                    state = 1
+    
+    return v_sets
+
 with open("points.txt") as points_file:
     points = readPoints(points_file)
 
+edges = []
+for i in range(len(points)):
+    edges.append((points[i], points[(i + 1) % len(points)]))
+
 if arePointsClockwise(points):
-    print ("points in clockwise order -> reversing list")
+    # print ("points in clockwise order -> reversing list")
     points.reverse()
 
 triangles = earClipping(points)
 pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
 tgraph_vertices, tgraph_adjacency_lists = createTriangleGraph(triangles)
 pgraph_colors = colorPointGraph(pgraph_vertices, tgraph_vertices, tgraph_adjacency_lists)
-print (pgraph_colors)
+visibility_sets = generateVisibilitySets(points, edges)
+
+for i, v_set in enumerate(visibility_sets):
+    print (i, "sees", v_set)
+
+print ("\ntriangles:")
+for triangle in triangles:
+    print (triangle)
