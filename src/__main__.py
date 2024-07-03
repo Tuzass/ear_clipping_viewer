@@ -12,6 +12,19 @@ def readPoints(file):
     
     return points
 
+def generateCombinations(n, k):
+    total_combinations = [[i] for i in range(n)]
+
+    for depth in range(1, k):
+        starting_index = total_combinations.index(list(range(0, depth)))
+        current_combinations = total_combinations.copy()
+        for c in current_combinations[starting_index:]:
+            max_c = max(c)
+            for i in range(max_c + 1, n):
+                total_combinations.append(c + [i])
+    
+    return total_combinations
+
 def arePointsClockwise(points):
     n = len(points)
     area = 0
@@ -133,7 +146,7 @@ def colorPointGraph(p_vertices, t_vertices, t_alists):
 
     return p_colors
 
-def generateVisibilitySets(points, edges):
+def generateVisibilitySets(points):
     v_sets = []
     for i in range(len(points)):
         v_sets.append(set())
@@ -184,6 +197,7 @@ def generateVisibilitySets(points, edges):
     
     return v_sets
 
+points = []
 with open("points.txt") as points_file:
     points = readPoints(points_file)
 
@@ -195,15 +209,23 @@ if arePointsClockwise(points):
     # print ("points in clockwise order -> reversing list")
     points.reverse()
 
+visibility_sets = generateVisibilitySets(points)
 triangles = earClipping(points)
+
 pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
 tgraph_vertices, tgraph_adjacency_lists = createTriangleGraph(triangles)
 pgraph_colors = colorPointGraph(pgraph_vertices, tgraph_vertices, tgraph_adjacency_lists)
-visibility_sets = generateVisibilitySets(points, edges)
 
-for i, v_set in enumerate(visibility_sets):
-    print (i, "sees", v_set)
+color0_vertices = []
+color1_vertices = []
+color2_vertices = []
+for i in range(len(pgraph_colors)):
+    if pgraph_colors[i] == 0:
+        color0_vertices.append(i)
+    elif pgraph_colors[i] == 1:
+        color1_vertices.append(i)
+    else:
+        color2_vertices.append(i)
 
-print ("\ntriangles:")
-for triangle in triangles:
-    print (triangle)
+upper_bound = min(len(color0_vertices), len(color1_vertices), len(color2_vertices))
+possible_combinations = generateCombinations(len(points), 4)
