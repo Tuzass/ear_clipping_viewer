@@ -195,14 +195,16 @@ def colorPointGraph(p_vertices, t_vertices, t_alists):
 
 def generateVisibilitySets(points, edges):
     # print ("\ngenerating visibility sets")
+    visible_vertices = []
     v_sets = []
     for i in range(len(points)):
+        visible_vertices.append(set())
         v_sets.append(set())
 
     for i in range(len(points)):
-        v_sets[i].add(i)
-        v_sets[i].add((i + 1) % len(points))
-        v_sets[(i + 1) % len(points)].add(i)
+        visible_vertices[i].add(i)
+        visible_vertices[i].add((i + 1) % len(points))
+        visible_vertices[(i + 1) % len(points)].add(i)
         
         for j in range(i + 2, len(points)):
             # print (f"\nchecking for interception for line {points[i]}, {points[j]}")
@@ -217,20 +219,28 @@ def generateVisibilitySets(points, edges):
                 # print (f"no interceptions, checking for outside line")
                 if not isLineOutside(points, i, j):
                     # print (f"line inside the polygon, {points[j]} visible")
-                    v_sets[i].add(j)
-                    v_sets[j].add(i)
+                    visible_vertices[i].add(j)
+                    visible_vertices[j].add(i)
                     continue
                 # print (f"line {points[i]}, {points[j]} is outside the polygon, {points[j]} not visible")
-    
+
+    for i in range(len(points)):
+        for j in range(len(points)):
+            if j in visible_vertices[i] and (j + 1) % len(points) in visible_vertices[i]:
+                v_sets[i].add(j)
+
     return v_sets
 
-def findLowerBound(v_sets, combinations):
+def findLowerBound(vertices, v_sets, upper_bound):
+    # print (f"\ntrying to reduce vertices {vertices}")
     n_vertices = len(v_sets)
     lower_bound = None
     minimal_combinations = []
+    combinations = generateCombinations(len(vertices), upper_bound)
+    # print (f"generated {len(combinations)} combinations of {len(vertices)} vertices up to choose {upper_bound}")
 
     for c in combinations:
-        # print (f"\ntesting combination {c}")
+        # print (f"\ntesting combination {[vertices[i] for i in c]}")
         vertices_covered = set()
 
         if lower_bound is not None and len(c) > lower_bound:
@@ -238,8 +248,9 @@ def findLowerBound(v_sets, combinations):
             break
 
         for i in c:
-            # print (f"vertices covered by vertex {i}: {v_sets[i]}")
-            vertices_covered = vertices_covered.union(v_sets[i])
+            vertex = vertices[i]
+            # print (f"edges covered by vertex {vertices[i]}: {v_sets[i]}")
+            vertices_covered = vertices_covered.union(v_sets[vertex])
 
         # print (f"vertices covered: {vertices_covered}")
         if vertices_covered == set(range(n_vertices)):
@@ -248,7 +259,9 @@ def findLowerBound(v_sets, combinations):
                 lower_bound = len(c)
             
             # print(f"combination added")
-            minimal_combinations.append(c)
+            minimal_combinations.append([vertices[i] for i in c])
+        
+        vertices_covered.clear()
         
     return minimal_combinations
 
@@ -283,12 +296,14 @@ for i in range(len(pgraph_colors)):
         color2_vertices.append(i)
 
 upper_bound = min(len(color0_vertices), len(color1_vertices), len(color2_vertices))
-possible_combinations = generateCombinations(len(points), upper_bound)
-minimal_combinations = findLowerBound(visibility_sets, possible_combinations)
-lower_bound = len(minimal_combinations[0])
+minimal_color0_combinations = findLowerBound(color0_vertices, visibility_sets, upper_bound)
+minimal_color1_combinations = findLowerBound(color1_vertices, visibility_sets, upper_bound)
+minimal_color2_combinations = findLowerBound(color2_vertices, visibility_sets, upper_bound)
+lower_bound = min(len(minimal_color0_combinations[0]), len(minimal_color1_combinations), len(minimal_color2_combinations[0]))
 
 print (f"the lower bound for the given polygon is {lower_bound}")
 print (f"the possible combinations that use this amount of cameras is:\n")
-for i, mc in enumerate(minimal_combinations):
-    points_list = [str(points[i]) for i in mc]
-    print (f"combination {i + 1}: {", ".join(points_list)}")
+for mc in minimal_color0_combinations + minimal_color1_combinations + minimal_color2_combinations:
+    if len(mc) == lower_bound:
+        points_list = [str(points[i]) for i in mc]
+        print (", ".join(points_list))
