@@ -43,7 +43,8 @@ def isPointInTriangle(p1, p2, p3, q):
     cross12 = crossProduct(p1, p2, q)
     cross23 = crossProduct(p2, p3, q)
     cross31 = crossProduct(p3, p1, q)
-    return not (cross12 < 0 or cross23 < 0 or cross31 < 0)
+    result = not (cross12 < 0 or cross23 < 0 or cross31 < 0)
+    return result
 
 def doLinesIntersect(p1, p2, p3, p4):
     cross123 = crossProduct(p1, p2, p3)
@@ -52,19 +53,64 @@ def doLinesIntersect(p1, p2, p3, p4):
     cross342 = crossProduct(p3, p4, p2)
     return cross123 * cross124 < 0 and cross341 * cross342 < 0
 
+def isLineOutside(points, i, j):
+    # print (f"checking if line {i}, {j} is outside the polygon")
+    if j - i == 1:
+        return False
+
+    turn_count = 0
+    has_turned_right = False
+    for k in range(i, j):
+        # print (f"checking direction to {k}")
+        cross = crossProduct(points[i], points[j], points[k])
+        if cross != 0:
+            turn_count += 1
+        if cross < 0:
+            # print ("right turn, line is not entirely outside")
+            has_turned_right = True
+    
+    if not has_turned_right and turn_count > 0:
+        # print ("line is entirely outside")
+        return True
+
+    turn_count = 0
+    has_turned_right = False
+    for k in range(j, i + len(points)):
+        # print (f"checking direction to {k % len(points)}")
+        cross = crossProduct(points[j], points[i], points[k % len(points)])
+        if cross != 0:
+            turn_count += 1
+        if cross < 0:
+            # print ("right turn, line is not entirely outside")
+            has_turned_right = True
+        
+    if not has_turned_right and turn_count > 0:
+        # print ("line is entirely outside")
+        return True
+    
+    return False
+
 def findEar(points):
+    # print (f"\nsearching for an ear with {len(points)} points remaining")
     for i in range(len(points) - 2):
         if crossProduct(points[i], points[i + 1], points[i + 2]) <= 0:
+            # print (f"next ear doesn't start with point {points[i]}")
             continue
         
+        # print (f"considering triangle {points[i]}, {points[i + 1]}, {points[i + 2]}")
+        possible = True
         for j in range(len(points)):
             if j in [i, i + 1, i + 2]:
                 continue
+            # print (f"considering point {points[j]}")
             if isPointInTriangle(points[i], points[i + 1], points[i + 2], points[j]):
-                continue
+                possible = False
+                # print (f"point in triangle {points[i]}, {points[i + 1]}, {points[i + 2]}")
+                break
+        
+        if possible:
+            # print ("ear found: ", [points[i], points[i + 1], points[i + 2]])
             return [points[i], points[i + 1], points[i + 2]]
-    
-    raise ValueError("defective polygon")
 
 def earClipping(points):
     triangles = []
@@ -76,6 +122,7 @@ def earClipping(points):
         triangles.append(triangle)
     
     triangles.append(remaining_points)
+    # print (f"\nfinal ear: {remaining_points}")
     return triangles
 
 def shareEdge(t1, t2):
@@ -146,56 +193,64 @@ def colorPointGraph(p_vertices, t_vertices, t_alists):
 
     return p_colors
 
-def generateVisibilitySets(points):
+def generateVisibilitySets(points, edges):
+    # print ("\ngenerating visibility sets")
     v_sets = []
     for i in range(len(points)):
         v_sets.append(set())
 
     for i in range(len(points)):
-        state = 0
         v_sets[i].add(i)
         v_sets[i].add((i + 1) % len(points))
         v_sets[(i + 1) % len(points)].add(i)
         
         for j in range(i + 2, len(points)):
-            # print (f"\nchecking {points[i]} {points[j]}, current state is {state}")
-            cross = crossProduct(points[j - 2], points[j - 1], points[j])
-
-            if state != 1 and cross < 0:
-                # print (f"state not 1 and right turn, {points[j]} not visible and state is -1")
-                state = -1
-                continue
-
-            if state != -1 and cross >= 0:
-                # print (f"state not -1 left/no turn, {points[j]} visible and state is 1")
-                state = 1
-                v_sets[i].add(j)
-                v_sets[j].add(i)
-                continue
-
-            if (state == 1 and cross <= 0) or (state == -1 and cross >= 0):
-                """
-                if cross > 0:
-                    print (f"right turn on state 1, testing for interception")
-                else:
-                    print (f"left turn on state -1, testing for interception")
-                """
-
-                sees_j = True
-                for k in range(i, j - 1):
-                    if doLinesIntersect(points[i], points[j], points[k], points[k + 1]):
-                        # print (f"edge {points[k]} {points[k + 1]} intercepts them, {points[j]} not visible and state is -1")
-                        state = -1
-                        sees_j = False
-                        break
+            # print (f"\nchecking for interception for line {points[i]}, {points[j]}")
+            sees_j = True
+            for e in edges:
+                if doLinesIntersect(points[i], points[j], e[0], e[1]):
+                    # print (f"edge {e[0]}, {e[1]} intercepts them, {points[j]} not visible")
+                    sees_j = False
+                    break
                 
-                if sees_j:
-                    # print (f"no interceptions: {points[j]} visible and state is 1")
+            if sees_j:
+                # print (f"no interceptions, checking for outside line")
+                if not isLineOutside(points, i, j):
+                    # print (f"line inside the polygon, {points[j]} visible")
                     v_sets[i].add(j)
                     v_sets[j].add(i)
-                    state = 1
+                    continue
+                # print (f"line {points[i]}, {points[j]} is outside the polygon, {points[j]} not visible")
     
     return v_sets
+
+def findLowerBound(v_sets, combinations):
+    n_vertices = len(v_sets)
+    lower_bound = None
+    minimal_combinations = []
+
+    for c in combinations:
+        # print (f"\ntesting combination {c}")
+        vertices_covered = set()
+
+        if lower_bound is not None and len(c) > lower_bound:
+            # print (f"combination has more points than the lower bound ({lower_bound}), returning\n")
+            break
+
+        for i in c:
+            # print (f"vertices covered by vertex {i}: {v_sets[i]}")
+            vertices_covered = vertices_covered.union(v_sets[i])
+
+        # print (f"vertices covered: {vertices_covered}")
+        if vertices_covered == set(range(n_vertices)):
+            if lower_bound is None:
+                # print (f"lower bound found: {len(c)}")
+                lower_bound = len(c)
+            
+            # print(f"combination added")
+            minimal_combinations.append(c)
+        
+    return minimal_combinations
 
 points = []
 with open("points.txt") as points_file:
@@ -206,10 +261,10 @@ for i in range(len(points)):
     edges.append((points[i], points[(i + 1) % len(points)]))
 
 if arePointsClockwise(points):
-    # print ("points in clockwise order -> reversing list")
+    print ("points in clockwise order -> reversing list")
     points.reverse()
 
-visibility_sets = generateVisibilitySets(points)
+visibility_sets = generateVisibilitySets(points, edges)
 triangles = earClipping(points)
 
 pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
@@ -228,4 +283,12 @@ for i in range(len(pgraph_colors)):
         color2_vertices.append(i)
 
 upper_bound = min(len(color0_vertices), len(color1_vertices), len(color2_vertices))
-possible_combinations = generateCombinations(len(points), 4)
+possible_combinations = generateCombinations(len(points), upper_bound)
+minimal_combinations = findLowerBound(visibility_sets, possible_combinations)
+lower_bound = len(minimal_combinations[0])
+
+print (f"the lower bound for the given polygon is {lower_bound}")
+print (f"the possible combinations that use this amount of cameras is:\n")
+for i, mc in enumerate(minimal_combinations):
+    points_list = [str(points[i]) for i in mc]
+    print (f"combination {i + 1}: {", ".join(points_list)}")
