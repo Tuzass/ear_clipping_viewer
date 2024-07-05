@@ -1,0 +1,76 @@
+lê os pontos
+
+construção do polígono:
+	plota os pontos de uma vez
+	forma as arestas, com a mesma velocidade de animação, de uma vez só
+	verifica-se se é um polígono válido: nenhuma aresta se cruza
+	caso estejam em sentido horário, a ordem é invertida (não importa para a visualização)
+
+
+visibility-checking:
+	a lista visible_vertices contém todos os vértices visíveis a cada vértice
+	para cada vértice:
+		destaca todos os vértices visíveis a ele
+		
+	a lista visibility_sets contém todas as arestas completamente visíveis a cada vértice
+	para cada aresta:
+		forma as arestas, com a mesma velocidade de animação, de uma vez só
+
+
+ear-clipping:
+	considera um sub-polígono com 3 ou mais vértices
+		visualização: torna a parte desconsiderada invisível ou diminui a opacidade dela
+	
+	percorre o sub-polígono, em sentido anti-horário, procurando 3 pontos consecutivos que:
+		1) formam uma virada para a esquerda
+			visualização: percorre as 2 arestas e, caso forme a virada pra esquerda, colore o triângulo formado para destacá-lo
+		
+		2) não contêm nenhum outro ponto no interior do triângulo
+			visualização: se houver um ponto dentro do triângulo, destaca ele e procura outro triângulo
+			obs.: desnecessário acender os pontos um a um e verificar que estão fora
+	
+	novo sub-polígono: sub-polígono - ponto do meio
+		visualização: remove o ponto e as duas arestas que partem dele // diminui a opacidade do triângulo e do ponto do meio
+
+
+após encontrar todas as orelhas, forma as arestas dos triângulos encontrados
+
+
+criação do grafo de triângulos:
+	com as animações paradas, pode-se alternar livremente entre ver o polígono e ver o grafo de triângulos
+	usa a lista de triângulos, na ordem em que foram formados
+	
+	os triângulos se tornam vértices
+		visualização: ponto médio dos vértices desse triângulo
+	
+	para cada triângulo:
+		considera todos os triângulos depois dele na lista
+		verifica se eles compartilham uma aresta
+			visualização: se compartilham, destaca essa aresta e alterna a visão para o grafo, criando a aresta entre os vértices
+
+
+3-coloring:
+	colore-se o primeiro triângulo, um vértice de cada cor
+	percorre o grafo de triângulos com uma DFS
+		se o triângulo foi visitado pela DFS, o vértice dele é colorido no grafo de triângulos
+		sempre que for percorrer uma aresta do grafo de triângulos, alterna-se a visão para ele
+		se o triângulo não estiver totalmente colorido, destaca-se os vértices já coloridos e colore-se o último
+
+
+destaca-se a cor com menos vértices, encontrando o limite superior de câmeras (n)
+
+
+reducing:
+	usa a lista visibility_sets
+	para cada uma das 3 cores:
+		mantém-se a variável lower-bound, cujo valor inicial é n
+		testa-se as combinações de até lower_bound vértices daquela cor
+		destaca-se as arestas vistas pelos vértices da combinação (i.e., união dos visibility_sets)
+		caso todas as arestas estejam visíveis, a combinação é válida e adicionada a uma lista
+		se foram usados menos do que lower_bound vértices, a lista atual é apagada e atualiza-se o valor de lower bound
+		por fim, adiciona-se a combinação à nova lista
+
+
+no fim, tendo encontrado o limite inferior de câmeras, uma lista das combinações que usam essa quantidade fica disponível
+pode-se escolher qualquer uma delas e clicar nos vértices, "apagando" a câmera e vendo como ela afeta a visibilidade do polígono
+
