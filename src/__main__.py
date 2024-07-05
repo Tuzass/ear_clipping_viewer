@@ -301,9 +301,21 @@ minimal_color1_combinations = findLowerBound(color1_vertices, visibility_sets, u
 minimal_color2_combinations = findLowerBound(color2_vertices, visibility_sets, upper_bound)
 lower_bound = min(len(minimal_color0_combinations[0]), len(minimal_color1_combinations), len(minimal_color2_combinations[0]))
 
-print (f"the lower bound for the given polygon is {lower_bound}")
-print (f"the possible combinations that use this amount of cameras is:\n")
+print (f"ear-clipping found {len(triangles)} triangles")
+for i, triangle in enumerate(triangles):
+    print (f"triangle {i + 1}:", ", ". join([str(point) for point in triangle]))
+
+print (f"\n3-coloring found an upper bound of {upper_bound} vertices")
+print ("color 0: ", ", ".join([str(points[i]) for i in color0_vertices]))
+print ("color 1: ", ", ".join([str(points[i]) for i in color1_vertices]))
+print ("color 2: ", ", ".join([str(points[i]) for i in color2_vertices]))
+
+minimal_combinations = []
 for mc in minimal_color0_combinations + minimal_color1_combinations + minimal_color2_combinations:
     if len(mc) == lower_bound:
-        points_list = [str(points[i]) for i in mc]
-        print (", ".join(points_list))
+        minimal_combinations.append(mc)
+
+print (f"\nvisibility-checking found a lower bound of {lower_bound} vertices")
+for i, mc in enumerate(minimal_combinations):
+    points_list = [str(points[j]) for j in mc]
+    print (f"combination {i + 1}:", ", ".join(points_list))
