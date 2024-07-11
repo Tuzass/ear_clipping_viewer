@@ -91,9 +91,12 @@ def isLineOutside(points, i, j):
     return False
 
 def findEar(points):
+    steps = []
     # print (f"\nsearching for an ear with {len(points)} points remaining")
     for i in range(len(points) - 2):
+        triangle = [points[i], points[i + 1], points[i + 2]]
         if crossProduct(points[i], points[i + 1], points[i + 2]) <= 0:
+            steps.append([1, triangle, None, f"triangle {triangle} makes a right turn"])
             # print (f"next ear doesn't start with point {points[i]}")
             continue
         
@@ -105,25 +108,27 @@ def findEar(points):
             # print (f"considering point {points[j]}")
             if isPointInTriangle(points[i], points[i + 1], points[i + 2], points[j]):
                 possible = False
+                steps.append([2, triangle, points[j], f"triangle {triangle} contains point {points[j]}"])
                 # print (f"point in triangle {points[i]}, {points[i + 1]}, {points[i + 2]}")
                 break
         
         if possible:
             # print ("ear found: ", [points[i], points[i + 1], points[i + 2]])
-            return [points[i], points[i + 1], points[i + 2]]
+            steps.append([0, triangle, None, f"triangle {triangle} is an ear"])
+            return steps
 
 def earClipping(points):
-    triangles = []
+    total_steps = []
     remaining_points = points.copy()
 
     while len(remaining_points) > 3:
-        triangle = findEar(remaining_points)
-        remaining_points.remove(triangle[1])
-        triangles.append(triangle)
+        steps = findEar(remaining_points)
+        remaining_points.remove(steps[-1][1][1])
+        total_steps.extend(steps)
     
-    triangles.append(remaining_points)
+    total_steps.append([0, remaining_points, None, f"triangle {remaining_points} is an ear"])
     # print (f"\nfinal ear: {remaining_points}")
-    return triangles
+    return total_steps
 
 def shareEdge(t1, t2):
     first = set(t1)
@@ -264,58 +269,3 @@ def findLowerBound(vertices, v_sets, upper_bound):
         vertices_covered.clear()
         
     return minimal_combinations
-
-points = []
-with open("points.txt") as points_file:
-    points = readPoints(points_file)
-
-edges = []
-for i in range(len(points)):
-    edges.append((points[i], points[(i + 1) % len(points)]))
-
-if arePointsClockwise(points):
-    print ("points in clockwise order -> reversing list")
-    points.reverse()
-
-visibility_sets = generateVisibilitySets(points, edges)
-triangles = earClipping(points)
-
-pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
-tgraph_vertices, tgraph_adjacency_lists = createTriangleGraph(triangles)
-pgraph_colors = colorPointGraph(pgraph_vertices, tgraph_vertices, tgraph_adjacency_lists)
-
-color0_vertices = []
-color1_vertices = []
-color2_vertices = []
-for i in range(len(pgraph_colors)):
-    if pgraph_colors[i] == 0:
-        color0_vertices.append(i)
-    elif pgraph_colors[i] == 1:
-        color1_vertices.append(i)
-    else:
-        color2_vertices.append(i)
-
-upper_bound = min(len(color0_vertices), len(color1_vertices), len(color2_vertices))
-minimal_color0_combinations = findLowerBound(color0_vertices, visibility_sets, upper_bound)
-minimal_color1_combinations = findLowerBound(color1_vertices, visibility_sets, upper_bound)
-minimal_color2_combinations = findLowerBound(color2_vertices, visibility_sets, upper_bound)
-lower_bound = min(len(minimal_color0_combinations[0]), len(minimal_color1_combinations), len(minimal_color2_combinations[0]))
-
-print (f"ear-clipping found {len(triangles)} triangles")
-for i, triangle in enumerate(triangles):
-    print (f"triangle {i + 1}:", ", ". join([str(point) for point in triangle]))
-
-print (f"\n3-coloring found an upper bound of {upper_bound} vertices")
-print ("color 0: ", ", ".join([str(points[i]) for i in color0_vertices]))
-print ("color 1: ", ", ".join([str(points[i]) for i in color1_vertices]))
-print ("color 2: ", ", ".join([str(points[i]) for i in color2_vertices]))
-
-minimal_combinations = []
-for mc in minimal_color0_combinations + minimal_color1_combinations + minimal_color2_combinations:
-    if len(mc) == lower_bound:
-        minimal_combinations.append(mc)
-
-print (f"\nvisibility-checking found a lower bound of {lower_bound} vertices")
-for i, mc in enumerate(minimal_combinations):
-    points_list = [str(points[j]) for j in mc]
-    print (f"combination {i + 1}:", ", ".join(points_list))
