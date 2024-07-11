@@ -1,3 +1,4 @@
+# reads points from file and returns a list of them in (x, y) format
 def readPoints(file):
     points = []
 
@@ -12,6 +13,7 @@ def readPoints(file):
     
     return points
 
+# generates combinations of [1, ..., n] with 1 to k elements
 def generateCombinations(n, k):
     total_combinations = [[i] for i in range(n)]
 
@@ -25,6 +27,7 @@ def generateCombinations(n, k):
     
     return total_combinations
 
+# determines if a list of points is in clockwise order, using the signed area of the polygon
 def arePointsClockwise(points):
     n = len(points)
     area = 0
@@ -36,9 +39,11 @@ def arePointsClockwise(points):
     
     return area < 0
 
+# returns the cross product of vectors (p1, p2) and (p1, p3)
 def crossProduct(p1, p2, p3):
     return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
 
+# determines whether point q is inside or in a border of the triangle (p1, p2, p3)
 def isPointInTriangle(p1, p2, p3, q):
     cross12 = crossProduct(p1, p2, q)
     cross23 = crossProduct(p2, p3, q)
@@ -46,6 +51,7 @@ def isPointInTriangle(p1, p2, p3, q):
     result = not (cross12 < 0 or cross23 < 0 or cross31 < 0)
     return result
 
+# determines whether line segments (p1, p2) and (p3, p4) intersect
 def doLinesIntersect(p1, p2, p3, p4):
     cross123 = crossProduct(p1, p2, p3)
     cross124 = crossProduct(p1, p2, p4)
@@ -53,6 +59,7 @@ def doLinesIntersect(p1, p2, p3, p4):
     cross342 = crossProduct(p3, p4, p2)
     return cross123 * cross124 < 0 and cross341 * cross342 < 0
 
+# determines if a line is completely outside the given polygon
 def isLineOutside(points, i, j):
     # print (f"checking if line {i}, {j} is outside the polygon")
     if j - i == 1:
@@ -90,6 +97,8 @@ def isLineOutside(points, i, j):
     
     return False
 
+# finds an ear in the given polygon
+# an ear is a triangle, formed by 3 consecutive vertices, that doesn't contain other vertices
 def findEar(points):
     steps = []
     # print (f"\nsearching for an ear with {len(points)} points remaining")
@@ -117,6 +126,8 @@ def findEar(points):
             steps.append([0, triangle, None, f"triangle {triangle} is an ear"])
             return steps
 
+# finds all ears in a given polygon
+# returns the steps relevant to the animation
 def earClipping(points):
     total_steps = []
     remaining_points = points.copy()
@@ -130,11 +141,13 @@ def earClipping(points):
     # print (f"\nfinal ear: {remaining_points}")
     return total_steps
 
+# determines whether triangles t1 and t2 share an edge (i.e. two vertices)
 def shareEdge(t1, t2):
     first = set(t1)
     second = set(t2)
     return len(first & second) == 2
-
+ 
+# returns a graph (with adjacency lists) formed by the triangulation given by 'triangles'
 def createPointGraph(points, triangles):
     vertices = points.copy()
     alists = []
@@ -152,6 +165,7 @@ def createPointGraph(points, triangles):
     
     return vertices, alists
 
+# returns a graph (with adjacency lists) where triangles are vertices and edges represent an edge shared by two triangles
 def createTriangleGraph(triangles):
     vertices = triangles.copy()
     alists = []
@@ -166,6 +180,7 @@ def createTriangleGraph(triangles):
     
     return vertices, alists
 
+# 3-colors a triangle based on the vertices and colors given
 def colorTriangle(p_vertices, p_colors, current_triangle):
     p0 = p_vertices.index(current_triangle[0])
     p1 = p_vertices.index(current_triangle[1])
@@ -181,6 +196,7 @@ def colorTriangle(p_vertices, p_colors, current_triangle):
     
     return p_colors
 
+# 3-colors all vertices in the given graph
 def colorPointGraph(p_vertices, t_vertices, t_alists):
     p_colors = [None] * len(p_vertices)
     colored_triangles = []
@@ -198,6 +214,7 @@ def colorPointGraph(p_vertices, t_vertices, t_alists):
 
     return p_colors
 
+# returns a list containing the edges that each vertex completely sees
 def generateVisibilitySets(points, edges):
     # print ("\ngenerating visibility sets")
     visible_vertices = []
@@ -236,6 +253,7 @@ def generateVisibilitySets(points, edges):
 
     return v_sets
 
+# determines the length of the smallest subset of vertices that still see the entire polygon and all subsets of that size
 def findLowerBound(vertices, v_sets, upper_bound):
     # print (f"\ntrying to reduce vertices {vertices}")
     n_vertices = len(v_sets)

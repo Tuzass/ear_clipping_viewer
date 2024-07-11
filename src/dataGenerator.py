@@ -9,10 +9,11 @@ for i in range(len(points)):
     edges.append((points[i], points[(i + 1) % len(points)]))
 
 if arePointsClockwise(points):
-    print ("points in clockwise order -> reversing list")
+    # print ("points in clockwise order -> reversing list")
     points.reverse()
 
 visibility_sets = generateVisibilitySets(points, edges)
+# ec = ear-clipping
 ec_steps = earClipping(points)
 for step in ec_steps:
     print (step)
@@ -22,6 +23,8 @@ for step in ec_steps:
     if step[0] == 0:
         triangles.append(step[1])
 
+# pgraph = point graph
+# tgraph = triangle graph
 pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
 tgraph_vertices, tgraph_adjacency_lists = createTriangleGraph(triangles)
 pgraph_colors = colorPointGraph(pgraph_vertices, tgraph_vertices, tgraph_adjacency_lists)
