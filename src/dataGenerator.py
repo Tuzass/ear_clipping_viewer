@@ -15,8 +15,6 @@ if arePointsClockwise(points):
 visibility_sets = generateVisibilitySets(points, edges)
 # ec = ear-clipping
 ec_steps = earClipping(points)
-for step in ec_steps:
-    print (step)
 
 triangles = []
 for step in ec_steps:
@@ -27,7 +25,11 @@ for step in ec_steps:
 # tgraph = triangle graph
 pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
 tgraph_vertices, tgraph_adjacency_lists = createTriangleGraph(triangles)
-pgraph_colors = colorPointGraph(pgraph_vertices, tgraph_vertices, tgraph_adjacency_lists)
+pgraph_colors, coloring_steps = colorPointGraph(pgraph_vertices, tgraph_vertices, tgraph_adjacency_lists)
+
+for step in coloring_steps:
+    print (step)
+print ()
 
 color0_vertices = []
 color1_vertices = []

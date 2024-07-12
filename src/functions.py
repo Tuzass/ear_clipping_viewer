@@ -185,6 +185,7 @@ def colorTriangle(p_vertices, p_colors, current_triangle):
     p0 = p_vertices.index(current_triangle[0])
     p1 = p_vertices.index(current_triangle[1])
     p2 = p_vertices.index(current_triangle[2])
+    step = [current_triangle, [None] * 3]
 
     for i in range(len(p_vertices)):
         current_colors = [p_colors[p0], p_colors[p1], p_colors[p2]]
@@ -192,19 +193,22 @@ def colorTriangle(p_vertices, p_colors, current_triangle):
             for j in range(3):
                 if j not in current_colors:
                     p_colors[i] = j
+                    step[1][[p0, p1, p2].index(i)] = j
                     break
     
-    return p_colors
+    return p_colors, step
 
 # 3-colors all vertices in the given graph
 def colorPointGraph(p_vertices, t_vertices, t_alists):
     p_colors = [None] * len(p_vertices)
+    steps = []
     colored_triangles = []
     stack = [0]
     
     while (len(stack) > 0):
         current_index = stack[-1]
-        p_colors = colorTriangle(p_vertices, p_colors, t_vertices[current_index])
+        p_colors, step = colorTriangle(p_vertices, p_colors, t_vertices[current_index])
+        steps.append(step)
         colored_triangles.append(current_index)
         stack.pop()
         
@@ -212,7 +216,7 @@ def colorPointGraph(p_vertices, t_vertices, t_alists):
             if i not in colored_triangles:
                 stack.append(i)
 
-    return p_colors
+    return p_colors, steps
 
 # returns a list containing the edges that each vertex completely sees
 def generateVisibilitySets(points, edges):
