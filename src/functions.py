@@ -199,6 +199,7 @@ def colorTriangle(p_vertices, p_colors, current_triangle):
     return p_colors, step
 
 # 3-colors all vertices in the given graph
+# returns the steps relevant to the animation
 def colorPointGraph(p_vertices, t_vertices, t_alists):
     p_colors = [None] * len(p_vertices)
     steps = []
@@ -291,3 +292,27 @@ def findLowerBound(vertices, v_sets, upper_bound):
         vertices_covered.clear()
         
     return minimal_combinations
+
+# returns the overall lower bound and all combinations of that size
+def reduceUpperBound(pgraph_colors, visibility_sets):
+    c0_vertices, c1_vertices, c2_vertices = ([], [], [])
+    for i in range(len(pgraph_colors)):
+        if pgraph_colors[i] == 0:
+            c0_vertices.append(i)
+        elif pgraph_colors[i] == 1:
+            c1_vertices.append(i)
+        else:
+            c2_vertices.append(i)
+    
+    upper_bound = min(len(c0_vertices), len(c1_vertices), len(c2_vertices))
+    minimal_c0_combinations = findLowerBound(c0_vertices, visibility_sets, upper_bound)
+    minimal_c1_combinations = findLowerBound(c1_vertices, visibility_sets, upper_bound)
+    minimal_c2_combinations = findLowerBound(c2_vertices, visibility_sets, upper_bound)
+    lower_bound = min(len(minimal_c0_combinations[0]), len(minimal_c1_combinations[0]), len(minimal_c2_combinations[0]))
+
+    minimal_combinations = []
+    for mc in minimal_c0_combinations + minimal_c1_combinations + minimal_c2_combinations:
+        if len(mc) == lower_bound:
+            minimal_combinations.append(mc)
+
+    return lower_bound, minimal_combinations
