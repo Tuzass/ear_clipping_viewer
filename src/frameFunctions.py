@@ -1,8 +1,20 @@
 import plotly.graph_objects as go
 
+# returns an annotation object with the given text
+def getAnnotation(text):
+    return go.layout.Annotation(
+        text=text,
+        xref="paper", yref="paper",
+        x=1.8, y=0.5,
+        showarrow=False,
+        bordercolor="black",
+        borderwidth=0
+    )
+
 # returns the frames for polygon building animation
 def create_pb_frames(x, y, vertices):
-    frames = [go.Frame(data=vertices + [go.Scatter(
+    frames = [go.Frame(name=f'pb_frame_{j}',
+            data=vertices + [go.Scatter(
                     x=[x[i], x[i] + (x[(i + 1) % len(x)] - x[i]) * (j / 20)],
                     y=[y[i], y[i] + (y[(i + 1) % len(x)] - y[i]) * (j / 20)],
                     mode='lines',
@@ -211,7 +223,7 @@ def create_ec_frames(points, ec_steps, bp_copy, base_ec):
     return frames
 
 # returns the frames for 3-coloring animation
-def create_coloring_frames(coloring_steps, bp_copy, base_ec, base_3c, ec_triangles):
+def create_tc_frames(coloring_steps, bp_copy, base_ec, base_3c, ec_triangles):
     colors = {0: "red", 1: "green", 2: "yellow"}
     frames = []
     base_3c_triangle, base_3c_vertices = base_3c
