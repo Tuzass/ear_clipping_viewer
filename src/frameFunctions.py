@@ -1,87 +1,26 @@
-from functions import *
 import plotly.graph_objects as go
 
-from dataGenerator import get_coloring_steps
+# returns the frames for polygon building animation
+def create_pb_frames(x, y, vertices):
+    frames = [go.Frame(data=vertices + [go.Scatter(
+                    x=[x[i], x[i] + (x[(i + 1) % len(x)] - x[i]) * (j / 20)],
+                    y=[y[i], y[i] + (y[(i + 1) % len(x)] - y[i]) * (j / 20)],
+                    mode='lines',
+                    line=dict(color='black'),
+                    opacity=1,
+                    name='edge_{i}')
+                    for i in range(len(x))]) for j in range(1, 21)]
 
-points = []
-with open("points.txt") as points_file:
-    points = readPoints(points_file)
+    return frames
 
-edges = []
-for i in range(len(points)):
-    edges.append((points[i], points[(i + 1) % len(points)]))
-
-x, y = zip(*points)
-
-# x = [0, 1, 2, 7, 5, 3, 4, -10, -10, -6, -1, -2]
-# y = [0, 1, 4, 8, 9, 10, 15, 18, 0, 11, 7, 1]
-
-vertices = [go.Scatter(x=[x[i]], y=[y[i]], mode='markers', name=f'vertex_{
-                       i}', opacity=1, marker=dict(color='black')) for i in range(len(x))]
-base_edges = [go.Scatter(x=[x[i]], y=[y[i]], mode='lines', name=f'edge_{
-                         i}', opacity=1, marker=dict(color='black')) for i in range(len(x))]
-base_ec_edges = [go.Scatter(x=[1000], y=[1000], mode='lines', name=f'ec_edge_{
-                            i}', opacity=0, line=dict(color='red')) for i in range(3)]
-base_ec_point = [go.Scatter(x=[1000], y=[
-                            1000], mode='markers', name=f'ec_point', opacity=0, marker=dict(color='red'))]
-base_triangles = [go.Scatter(x=[1000], y=[1000], mode='lines', name=f'triangle_{
-                             i}', opacity=0, marker=dict(color='black')) for i in range(len(x) - 2)]
-coloring_triangle = [go.Scatter(x=[1000], y=[
-                                1000], mode='lines', name=f'3c_triangle', opacity=0, marker=dict(color='black'))]
-coloring_points = [go.Scatter(x=[x[i]], y=[y[i]], mode='lines', name=f'edge_{
-    i}', opacity=1, marker=dict(color='black')) for i in range(len(x))]
-
-fig = go.Figure(
-    data=vertices + base_edges + base_triangles +
-    base_ec_edges + base_ec_point + coloring_triangle + coloring_points,
-    layout=go.Layout(
-        xaxis=dict(range=[min(x) - 6, max(x) + 6]),
-        yaxis=dict(range=[min(y) - 3, max(y) + 3]),
-        updatemenus=[dict(
-            type="buttons",
-            buttons=[dict(label="Play",
-                          method="animate",
-                          args=[
-                              None,
-                              {
-                                "frame": {"duration": 10, "redraw": False},
-                                "fromcurrent": True,
-                                "transition": {"duration": 0},
-                              }
-                          ])])]
-    )
-)
-
-polygon_building_frames = [go.Frame(data=vertices + [go.Scatter(
-    x=[x[i], x[i] + (x[(i + 1) % len(x)] - x[i]) * (j / 20)],
-    y=[y[i], y[i] + (y[(i + 1) % len(x)] - y[i]) * (j / 20)],
-    mode='lines',
-    line=dict(color='black'),
-    name='edge_{i}')
-    for i in range(len(x))]
-    + base_ec_edges + base_ec_point) for j in range(1, 21)]
-
-built_edges = [go.Scatter(
-    x=[x[i], x[(i + 1) % len(x)]],
-    y=[y[i], y[(i + 1) % len(x)]],
-    mode='lines',
-    line=dict(color='black'),
-    opacity=1,
-    name=f'edge_{i}') for i in range(len(x))]
-
-built_polygon = vertices + built_edges
-fig.frames = list(fig.frames) + polygon_building_frames + \
-    [go.Frame(data=built_polygon + base_triangles +
-              base_ec_edges + base_ec_point)]
-bp_copy = built_polygon.copy()
-
-
-def create_ec_frames(points, ec_steps, bp_copy):
+# returns the frames for ear-clipping animation
+def create_ec_frames(points, ec_steps, bp_copy, base_ec):
     frames = []
     triangle_index = 0
     triangles = []
     formed_triangles = []
     formed_edges = []
+    base_ec_edges, base_ec_point, base_triangles = base_ec
 
     for step in ec_steps:
         permanent_lines = []
@@ -252,8 +191,8 @@ def create_ec_frames(points, ec_steps, bp_copy):
                         formed_triangles = formed_triangles[:index] + [
                             transparent_qr] + formed_triangles[index + 1:]
 
-                    frames.append(go.Frame(data=bp_copy + formed_triangles + [
-                                  opaque_pr] + base_triangles[triangle_index:] + base_ec_edges + base_ec_point))
+                    frames.append(go.Frame(data=bp_copy + formed_triangles + [opaque_pr]
+                                           + base_triangles[triangle_index:] + base_ec_edges + base_ec_point))
 
                 formed_edges.append([p, r])
                 formed_triangles.append(go.Scatter(
@@ -269,23 +208,13 @@ def create_ec_frames(points, ec_steps, bp_copy):
         frames.append(go.Frame(data=bp_copy + formed_triangles +
                       base_ec_edges + base_ec_point))
 
-    built_triangles = [go.Scatter(
-        x=[p[0] for p in triangle],
-        y=[p[1] for p in triangle],
-        mode='lines',
-        line=dict(color='black'),
-        opacity=1,
-        name=f'triangle_{i}'
-    ) for i, triangle in enumerate(triangles)]
+    return frames
 
-    return (frames + [go.Frame(data=built_polygon + built_triangles + base_ec_edges + base_ec_point)], built_triangles)
-
-
-def create_coloring_frames(coloring_steps, bp_copy, ec_triangles):
+# returns the frames for 3-coloring animation
+def create_coloring_frames(coloring_steps, bp_copy, base_ec, base_3c, ec_triangles):
     colors = {0: "red", 1: "green", 2: "yellow"}
-
-    # Criação dos frames
     frames = []
+    base_3c_triangle, base_3c_vertices = base_3c
 
     vertex_colors = []
     for i, step in enumerate(coloring_steps):
@@ -293,7 +222,7 @@ def create_coloring_frames(coloring_steps, bp_copy, ec_triangles):
 
         frame_data = []
         for trace in bp_copy + ec_triangles:
-            updated_trace = trace.update(opacity=0.2)
+            updated_trace = trace.update(opacity=0.5)
             frame_data.append(updated_trace)
 
         x_triangle, y_triangle = zip(*points)
@@ -302,10 +231,10 @@ def create_coloring_frames(coloring_steps, bp_copy, ec_triangles):
 
         frame_data.append(go.Scatter(
             x=x_triangle, y=y_triangle, mode='lines', line=dict(color='#FF4500', width=2),
-            name=f'3c_triangle', opacity=40 / 40
+            name=f'3c_triangle', opacity=1
         ))
 
-        # # Adiciona cada ponto com a cor correta
+        # Adiciona cada ponto com a cor correta
         for (x, y), color_index in zip(points, color_indices):
 
             if (color_index is not None):
@@ -326,44 +255,6 @@ def create_coloring_frames(coloring_steps, bp_copy, ec_triangles):
 
     return frames
 
-
-ec_steps = [[0, [(0.0, 0.0), (1.0, 1.0), (2.0, 4.0)], None, 'triangle [(0.0, 0.0), (1.0, 1.0), (2.0, 4.0)] is an ear'],
-            [1, [(0.0, 0.0), (2.0, 4.0), (7.0, 8.0)], None,
-             'triangle [(0.0, 0.0), (2.0, 4.0), (7.0, 8.0)] makes a right turn'],
-            [0, [(2.0, 4.0), (7.0, 8.0), (5.0, 9.0)], None,
-             'triangle [(2.0, 4.0), (7.0, 8.0), (5.0, 9.0)] is an ear'],
-            [1, [(0.0, 0.0), (2.0, 4.0), (5.0, 9.0)], None,
-             'triangle [(0.0, 0.0), (2.0, 4.0), (5.0, 9.0)] makes a right turn'],
-            [0, [(2.0, 4.0), (5.0, 9.0), (3.0, 10.0)], None,
-             'triangle [(2.0, 4.0), (5.0, 9.0), (3.0, 10.0)] is an ear'],
-            [0, [(0.0, 0.0), (2.0, 4.0), (3.0, 10.0)], None,
-             'triangle [(0.0, 0.0), (2.0, 4.0), (3.0, 10.0)] is an ear'],
-            [0, [(0.0, 0.0), (3.0, 10.0), (4.0, 15.0)], None,
-             'triangle [(0.0, 0.0), (3.0, 10.0), (4.0, 15.0)] is an ear'],
-            [2, [(0.0, 0.0), (4.0, 15.0), (-10.0, 18.0)], (-6.0, 11.0),
-             'triangle [(0.0, 0.0), (4.0, 15.0), (-10.0, 18.0)] contains point (-6.0, 11.0)'],
-            [2, [(4.0, 15.0), (-10.0, 18.0), (-10.0, 0.0)], (-6.0, 11.0),
-             'triangle [(4.0, 15.0), (-10.0, 18.0), (-10.0, 0.0)] contains point (-6.0, 11.0)'],
-            [0, [(-10.0, 18.0), (-10.0, 0.0), (-6.0, 11.0)], None,
-             'triangle [(-10.0, 18.0), (-10.0, 0.0), (-6.0, 11.0)] is an ear'],
-            [2, [(0.0, 0.0), (4.0, 15.0), (-10.0, 18.0)], (-6.0, 11.0),
-             'triangle [(0.0, 0.0), (4.0, 15.0), (-10.0, 18.0)] contains point (-6.0, 11.0)'],
-            [0, [(4.0, 15.0), (-10.0, 18.0), (-6.0, 11.0)], None,
-             'triangle [(4.0, 15.0), (-10.0, 18.0), (-6.0, 11.0)] is an ear'],
-            [2, [(0.0, 0.0), (4.0, 15.0), (-6.0, 11.0)], (-1.0, 7.0),
-             'triangle [(0.0, 0.0), (4.0, 15.0), (-6.0, 11.0)] contains point (-1.0, 7.0)'],
-            [0, [(4.0, 15.0), (-6.0, 11.0), (-1.0, 7.0)], None,
-             'triangle [(4.0, 15.0), (-6.0, 11.0), (-1.0, 7.0)] is an ear'],
-            [0, [(0.0, 0.0), (4.0, 15.0), (-1.0, 7.0)], None,
-             'triangle [(0.0, 0.0), (4.0, 15.0), (-1.0, 7.0)] is an ear'],
-            [0, [(0.0, 0.0), (-1.0, 7.0), (-2.0, 1.0)], None, 'triangle [(0.0, 0.0), (-1.0, 7.0), (-2.0, 1.0)] is an ear']]
-
-ec_frames, built_triangles = create_ec_frames([(x[i], y[i])
-                                               for i in range(len(x))], ec_steps, bp_copy)
-
-coloring_frames = create_coloring_frames(coloring_steps=get_coloring_steps(),
-                                         bp_copy=bp_copy, ec_triangles=built_triangles.copy())
-
-fig.frames = list(fig.frames) + ec_frames + coloring_frames
-
-fig.show()
+# returns the frames for minimal subsets animation
+def create_minsub_frames():
+    return []
