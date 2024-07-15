@@ -29,15 +29,13 @@ def create_pb_frames(x, y, vertices):
     return frames
 
 # returns the frames for ear-clipping animation
-def create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c):
+def create_ec_frames(points, ec_steps, bp_copy, base_ec):
     frames = []
     triangle_index = 0
     triangles = []
     formed_triangles = []
     formed_edges = []
-    base_ec_edges, base_ec_point, base_triangles = base_ec
-    base_3c_triangle, base_3c_vertices = base_3c
-    joined_base_3c = base_3c_triangle + base_3c_vertices
+    base_triangles, base_ec_edges, base_ec_point = base_ec
 
     for step in ec_steps:
         permanent_lines = []
@@ -93,7 +91,7 @@ def create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c):
                         name=f'ec_edge_1'))
 
                 frames.append(go.Frame(data=bp_copy + formed_triangles +
-                              base_triangles[triangle_index:] + blue_lines + base_ec_edges[2:] + base_ec_point + joined_base_3c,
+                              base_triangles[triangle_index:] + blue_lines + base_ec_edges[2:] + base_ec_point,
                               name=f'ec_frame_{len(frames) + 1}'))
 
         else:
@@ -124,7 +122,7 @@ def create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c):
                         name=f'ec_edge_{i}')
 
                     frames.append(go.Frame(data=bp_copy + formed_triangles + base_triangles[triangle_index:] + permanent_lines
-                                            + [blue_line] + base_ec_edges[i + 1:] + base_ec_point + joined_base_3c,
+                                            + [blue_line] + base_ec_edges[i + 1:] + base_ec_point,
                                             name=f'ec_frame_{len(frames) + 1}'))
 
             if step[0] == 2:
@@ -139,16 +137,16 @@ def create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c):
 
                 for k in range(40):
                     frames.append(go.Frame(data=bp_copy + formed_triangles +
-                              base_triangles[triangle_index:] + permanent_lines + [lit_point] + joined_base_3c,
+                              base_triangles[triangle_index:] + permanent_lines + [lit_point],
                               name=f'ec_frame_{len(frames) + 1}'))
 
                 frames.append(go.Frame(data=bp_copy + formed_triangles +
-                              base_triangles[triangle_index:] + permanent_lines + base_ec_point + joined_base_3c,
+                              base_triangles[triangle_index:] + permanent_lines + base_ec_point,
                               name=f'ec_frame_{len(frames) + 1}'))
 
             else:
                 triangles.append(triangle)
-                p, q, r = tuple(triangle)
+                p, q, r = tuple(triangle[:3])
                 p_index = points.index(p)
                 q_index = points.index(q)
                 r_index = points.index(r)
@@ -208,7 +206,7 @@ def create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c):
                         formed_triangles = formed_triangles[:index] + [transparent_qr] + formed_triangles[index + 1:]
 
                     frames.append(go.Frame(data=bp_copy + formed_triangles + [opaque_pr]
-                                           + base_triangles[triangle_index:] + base_ec_edges + base_ec_point + joined_base_3c,
+                                           + base_triangles[triangle_index + 1:] + base_ec_edges + base_ec_point,
                                            name=f'ec_frame_{len(frames) + 1}'))
 
                 formed_edges.append([p, r])
@@ -222,57 +220,104 @@ def create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c):
                 ))
                 triangle_index += 1
 
-        frames.append(go.Frame(data=bp_copy + formed_triangles +
-                      base_ec_edges + base_ec_point + joined_base_3c,
+        frames.append(go.Frame(data=bp_copy + formed_triangles + base_triangles[triangle_index:] +
+                      base_ec_edges + base_ec_point,
                       name=f'ec_frame_{len(frames) + 1}'))
-
+    
     return frames
 
 # returns the frames for 3-coloring animation
-def create_tc_frames(coloring_steps, bp_copy, base_ec, base_3c, ec_triangles):
-    colors = {0: "red", 1: "green", 2: "yellow"}
+def create_tc_frames(points, coloring_steps, base_ec, base_3c, triangles):
+    colors = {0: "red", 1: "blue", 2: "yellow"}
     frames = []
-    base_3c_triangle, base_3c_vertices = base_3c
+    base_ec_triangles, base_ec_edges, base_ec_point = base_ec
+    base_3c_triangle, tc_vertices = base_3c
 
-    vertex_colors = []
-    for i, step in enumerate(coloring_steps):
-        points, color_indices = step
+    transparent_vertices = [go.Scatter(x=[points[i][0]], y=[points[i][1]],
+                                       mode='markers', name=f'vertex_{i}', opacity=1, marker=dict(color='black'),
+                                       showlegend=False) for i in range(len(points))]
+    
+    transparent_edges = [go.Scatter(x=[points[i][0], points[(i + 1) % len(points)][0]], y=[points[i][1], points[(i + 1) % len(points)][1]],
+                                    mode='lines', name=f'edge_{i}', opacity=0, marker=dict(color='black'),
+                                    showlegend=False, hoverinfo='skip') for i in range(len(points))]
+    
+    transparent_triangles = [go.Scatter(
+        x=[p[0] for p in triangles[i]], y=[p[1] for p in triangles[i]],
+        mode='lines', name=f'triangle_{i}', opacity=0.8, marker=dict(color='black'),
+        showlegend=False, hoverinfo='skip') for i in range(len(triangles))]
 
-        frame_data = []
-        for trace in bp_copy + ec_triangles:
-            updated_trace = trace.update(opacity=0.5)
-            frame_data.append(updated_trace)
-
-        x_triangle, y_triangle = zip(*points)
+    for step in coloring_steps:
+        triangles, color_indices = step
+        frame_data = transparent_vertices + transparent_edges + transparent_triangles
+        frame_data = frame_data + base_ec_edges + base_ec_point
+        x_triangle, y_triangle = zip(*triangles)
         x_triangle = list(x_triangle) + [x_triangle[0]]
         y_triangle = list(y_triangle) + [y_triangle[0]]
 
-        frame_data.append(go.Scatter(
-            x=x_triangle, y=y_triangle, mode='lines', line=dict(color='#FF4500', width=2),
-            name=f'3c_triangle', opacity=1
-        ))
+        for i in range(1, 6):
+            frames.append(go.Frame(
+                data=frame_data +
+                [go.Scatter(x=x_triangle, y=y_triangle, mode='lines', line=dict(color='#FF4500', width=2), name=f'3c_triangle', opacity=i * 0.2)]
+                + tc_vertices, name=f'tc_frame_{len(frames) + 1}'))
 
-        # Adiciona cada ponto com a cor correta
-        for (x, y), color_index in zip(points, color_indices):
-
+        for p, color_index in zip(triangles, color_indices):
             if (color_index is not None):
                 color = colors[color_index]
+                index = points.index(p)
+                colored_vertex = go.Scatter(x=[p[0]], y=[p[1]], mode='markers', marker=dict(color=color, size=10), name=f'3c_vertex_{index}', opacity=1)
+                tc_vertices = tc_vertices[:index] + [colored_vertex] + tc_vertices[index + 1:]
 
-                # frame_data.append(triangle)
-
-                vertex_color = go.Scatter(
-                    x=[x], y=[y], mode='markers', marker=dict(color=color, size=10), name=f'3c_vertex_{i}', opacity=1)
-
-                vertex_colors.append(vertex_color)
-                frame_data.append(vertex_color)
-
-            for vColor in vertex_colors:
-                frame_data.append(vColor)
-
-        frames.extend([go.Frame(data=frame_data)] * 40)
+        for i in range(1, 6):
+            frames.append(go.Frame(
+                data=frame_data +
+                [go.Scatter(x=x_triangle, y=y_triangle, mode='lines', line=dict(color='#FF4500', width=2), name=f'3c_triangle', opacity=1 - i * 0.2)]
+                + tc_vertices, name=f'tc_frame_{len(frames) + 1}'))
+        
+        frames.append(go.Frame(data=frame_data + base_3c_triangle + tc_vertices, name=f'tc_frame_{len(frames) + 1}'))
 
     return frames
 
 # returns the frames for minimal subsets animation
-def create_ms_frames():
-    return []
+def create_ms_frames(points, visibility_sets, minimal_combinations, base_polygon, base_ec, base_3c):
+    frames = []
+    base_ec_triangles, base_ec_edges, base_ec_point = base_ec
+    base_3c_triangle, base_3c_vertices = base_3c
+    joined_ec3c = base_ec_triangles + base_ec_edges + base_ec_point + base_3c_triangle + base_3c_vertices
+    fully_colored_edges = [go.Scatter(
+        x=[points[i][0], points[(i + 1) % len(points)][0]],
+        y=[points[i][1], points[(i + 1) % len(points)][1]],
+        mode='lines',
+        line=dict(color='blue', width=2),
+        opacity=1,
+        showlegend=False,
+        name=f'edge_{i}'
+    ) for i in range(len(points))]
+
+    for combination in minimal_combinations:
+        colored_edges = []
+        bp_copy = base_polygon.copy()
+        for v_index in combination:
+            colored_vertex = go.Scatter(x=[points[v_index][0]], y=[points[v_index][1]], mode='markers', marker=dict(color='blue', size=10), name=f'vertex_{v_index}', opacity=1)
+            bp_copy = bp_copy[:v_index] + [colored_vertex] + bp_copy[v_index + 1:]
+            edges = []
+            for e_index in range(len(points)):
+                p = points[e_index]
+                q = points[(e_index + 1) % len(points)]
+
+                if e_index in colored_edges:
+                    edges.append(go.Scatter(x=[p[0], q[0]], y=[p[1], q[1]], mode='lines', line=dict(color='blue', width=2), name=f'edge_{e_index}', opacity=1))
+                    continue
+
+                if e_index in visibility_sets[v_index]:
+                    edges.append(go.Scatter(x=[p[0], q[0]], y=[p[1], q[1]], mode='lines', line=dict(color='blue', width=2), name=f'edge_{e_index}', opacity=1))
+                    colored_edges.append(e_index)
+                else:
+                    edges.append(bp_copy[len(points) + e_index])
+            
+            frames.append(go.Frame(data=bp_copy[:len(points)] + edges + joined_ec3c, name=f'ms_frame_{len(frames) + 1}'))
+        
+        frames.append(go.Frame(data=bp_copy[:len(points)] + fully_colored_edges + joined_ec3c, name=f'ms_frame_{len(frames) + 1}'))
+        frames.append(go.Frame(data=base_polygon + joined_ec3c, name=f'ms_frame_{len(frames) + 1}'))
+
+    frames.append(go.Frame(data=base_polygon + joined_ec3c, name=f'ms_frame_{len(frames) + 1}'))
+    return frames

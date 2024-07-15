@@ -2,10 +2,6 @@ from logicFunctions import *
 from frameFunctions import *
 from texts import *
 
-# if True, every frame is redrawn and animations are less smooth, but the annotation changes with every step
-# if False, annotation doesn't change, but animations are much smoother
-redraw = False
-
 points = []
 with open("points.txt") as points_file:
     points = readPoints(points_file)
@@ -27,6 +23,8 @@ triangles = []
 for step in ec_steps:
     if step[0] == 0:
         triangles.append(step[1])
+for i in range(len(triangles)):
+    triangles[i].append(triangles[i][0])
 
 # pgraph = point graph, tgraph = triangle graph
 pgraph_vertices, pgraph_adjacency_lists = createPointGraph(points, triangles)
@@ -35,10 +33,10 @@ pgraph_colors, coloring_steps = colorPointGraph(pgraph_vertices, tgraph_vertices
 
 lower_bound, minimal_combinations = reduceUpperBound(pgraph_colors, visibility_sets)
 
-vertices = [go.Scatter(x=[x[i]], y=[y[i]], mode='markers', name=f'vertex_{i}', opacity=1, marker=dict(color='black'), showlegend=False) for i in range(len(x))]
+vertices = [go.Scatter(x=[x[i]], y=[y[i]], mode='markers', name=f'vertex_{i}', opacity=1, marker=dict(color='black', size=5), showlegend=False) for i in range(len(x))]
 base_edges = [go.Scatter(x=[x[i]], y=[y[i]], mode='lines', name=f'edge_{i}', opacity=0, marker=dict(color='black'), showlegend=False, hoverinfo='skip') for i in range(len(x))]
 base_triangles = [go.Scatter(x=[0], y=[0], mode='lines', name=f'triangle_{i}', opacity=0, marker=dict(color='black'), showlegend=False, hoverinfo='skip') for i in range(len(x) - 2)]
-base_ec_edges = [go.Scatter(x=[0], y=[0], mode='lines', name=f'ec_edge_{i}', opacity=0, line=dict(color='red'), showlegend=False, hoverinfo='skip') for i in range(3)]
+base_ec_edges = [go.Scatter(x=[0], y=[0], mode='lines', name=f'ec_edge_{i}', opacity=0, line=dict(color='black'), showlegend=False, hoverinfo='skip') for i in range(3)]
 base_ec_point = [go.Scatter(x=[0], y=[0], mode='markers', name=f'ec_point', opacity=0, marker=dict(color='red'), showlegend=False, hoverinfo='skip')]
 base_3c_triangle = [go.Scatter(x=[0], y=[0], mode='lines', name=f'3c_triangle', opacity=0, marker=dict(color='black'), showlegend=False, hoverinfo='skip')]
 base_3c_vertices = [go.Scatter(x=[x[i]], y=[y[i]], mode='lines', name=f'3c_vertex_{i}', opacity=0, line=dict(color='black'), showlegend=False, hoverinfo='skip') for i in range(len(x))]
@@ -76,17 +74,17 @@ built_triangles = [go.Scatter(
 
 built_triangles_frame = go.Frame(data=built_polygon + built_triangles + base_ec_edges + base_ec_point + base_3c_triangle + base_3c_vertices)
 
-base_ec = base_ec_edges, base_ec_point, base_triangles
+base_ec = base_triangles, base_ec_edges, base_ec_point
 base_3c = base_3c_triangle, base_3c_vertices
 
 ec_frames = []
-ec_frames = create_ec_frames(points, ec_steps, bp_copy, base_ec, base_3c)
+ec_frames = create_ec_frames(points, ec_steps, bp_copy, base_ec)
 
 tc_frames = []
-# tc_frames = create_tc_frames(coloring_steps, bp_copy, base_ec, base_3c, built_triangles.copy())
+tc_frames = create_tc_frames(points, coloring_steps, base_ec, base_3c, triangles)
 
 ms_frames = []
-# ms_frames = create_ms_frames()
+ms_frames = create_ms_frames(points, visibility_sets, minimal_combinations, built_polygon, base_ec, base_3c)
 
 checkpoint_frames = [
     {
@@ -126,32 +124,34 @@ fig.update_layout(
                 {
                     'label': 'Start<br>Início',
                     'method': 'animate',
-                    'args': [['start_frame'], {'frame': {'duration': 10, 'redraw': redraw}, 'mode': 'immediate'}],
+                    'args': [['start_frame'], {'frame': {'duration': 1, 'redraw': True}, 'mode': 'immediate'}],
                 },
                 {
                     'label': 'Build Polygon<br>Construir Polígono',
                     'method': 'animate',
-                    'args': [[frame['name'] for frame in pb_frames], 
-                             {'frame': {'duration': 1, 'redraw': redraw},
-                              'transition': {'duration': 0, 'easing': 'elastic-in-out'}, 'mode': 'immediate'}],
+                    'args': [[f'pb_frame_{i}' for i in range(len(pb_frames) + 1)], 
+                             {'frame': {'duration': 1, 'redraw': True},
+                              'mode': 'immediate'}],
                 },
                 {
                     'label': 'Ear-Clipping<br>Corte-de-Orelhas',
                     'method': 'animate',
-                    'args': [[frame['name'] for frame in ec_frames],
-                             {'frame': {'duration': 10, 'redraw': redraw}, 'mode': 'immediate'}],
+                    'args': [[f'ec_frame_{i}' for i in range(len(ec_frames) + 1)],
+                             {'frame': {'duration': 1, 'redraw': True},
+                            'mode': 'immediate'}],
                 },
                 {
                     'label': '3-Coloring<br>3-Coloração',
                     'method': 'animate',
-                    'args': [[frame['name'] for frame in tc_frames],
-                             {'frame': {'duration': 10, 'redraw': redraw}, 'mode': 'immediate'}],
+                    'args': [[f'tc_frame_{i}' for i in range(len(tc_frames) + 1)],
+                             {'frame': {'duration': 10, 'redraw': True},
+                            'mode': 'immediate'}],
                 },
                 {
                     'label': 'Minimal Subsets<br>Subconjuntos Mínimos',
                     'method': 'animate',
-                    'args': [[frame['name'] for frame in ms_frames],
-                             {'frame': {'duration': 10, 'redraw': redraw}, 'mode': 'immediate'}],
+                    'args': [[f'ms_frame_{i}' for i in range(len(ms_frames) + 1)],
+                             {'frame': {'duration': 1000, 'redraw': True}, 'mode': 'immediate'}],
                 }
             ],
             'direction': 'right',
